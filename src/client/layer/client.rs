@@ -175,7 +175,7 @@ where
         let mut this = self.clone();
 
         // Extract per-request options from the request extensions and apply them to the client.
-        let descriptor = {
+        let (descriptor, connect_only) = {
             let RequestOptions {
                 group,
                 proxy,
@@ -186,6 +186,7 @@ where
                 socket_bind_options,
                 connect_to,
                 ech_config_list,
+                connect_only,
             } = RequestConfig::<RequestOptions>::remove(req.extensions_mut()).unwrap_or_default();
 
             if let Some(opts) = http1_options {
@@ -195,7 +196,7 @@ where
                 this.h2_builder = this.h2_builder.options(opts);
             }
 
-            ConnectionDescriptor::new(
+            let descriptor = ConnectionDescriptor::new(
                 uri,
                 group,
                 proxy,
@@ -204,8 +205,26 @@ where
                 socket_bind_options,
                 connect_to,
                 ech_config_list,
-            )
+            );
+            (descriptor, connect_only)
         };
+
+        if let Some(require) = connect_only {
+            return Box::pin(async move {
+                let pooled = this.connection_for(descriptor).await?;
+                let version = if pooled.is_http2() {
+                    Version::HTTP_2
+                } else {
+                    Version::HTTP_11
+                };
+                // Not put back in the pool, so closed once dropped.
+                if require.is_some_and(|v| v != version) {
+                    pooled.conn_info.poison();
+                }
+                drop(pooled);
+                Err(Box::new(ConnectedOnly(version)) as BoxError)
+            });
+        }
 
         Box::pin(this.send_request(req, descriptor).map_err(Into::into))
     }
@@ -1160,3 +1179,17 @@ fn is_schema_secure(uri: &Uri) -> bool {
         .map(|scheme_str| matches!(scheme_str, "wss" | "https"))
         .unwrap_or_default()
 }
+
+/// What a connect-only request ends in: the connection is made, with this
+/// version, and the request isn't sent. Turned into an empty response by
+/// [`crate::client::future::Pending`].
+#[derive(Debug)]
+pub(crate) struct ConnectedOnly(pub(crate) Version);
+
+impl fmt::Display for ConnectedOnly {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "connected over {:?}, request not sent", self.0)
+    }
+}
+
+impl StdError for ConnectedOnly {}

@@ -7,7 +7,9 @@ use http::{Request, Uri};
 use pin_project_lite::pin_project;
 use tower::util::{Either, Oneshot};
 
-use super::{Body, BoxedClientService, ClientService, Error, Response};
+use super::{
+    Body, BoxedClientService, ClientService, Error, Response, layer::client::ConnectedOnly,
+};
 
 pin_project! {
     /// [`Pending`] is a future representing the state of an HTTP request, which may be either
@@ -45,6 +47,13 @@ impl Future for Pending {
             .expect("Pending::Request polled after completion");
         let res = match res {
             Ok(res) => Ok(Response::new(res, uri)),
+            Err(err) if err.is::<ConnectedOnly>() => {
+                let mut res = http::Response::new(Body::empty());
+                if let Ok(connected) = err.downcast::<ConnectedOnly>() {
+                    *res.version_mut() = connected.0;
+                }
+                Ok(Response::new(res, uri))
+            }
             Err(err) => {
                 let mut err = err
                     .downcast::<Error>()

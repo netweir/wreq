@@ -674,6 +674,22 @@ impl RequestBuilder {
         self
     }
 
+    /// Only make the connection this request would go over, as a browser's
+    /// speculative connection does, and keep it idle in the pool for the
+    /// requests after it; the request itself isn't sent. The response is
+    /// empty, with the HTTP version the connection agreed on (through ALPN,
+    /// for TLS). With `require`, a connection that agreed on another version
+    /// is closed rather than kept. An idle connection already in the pool
+    /// answers at once, and none is made.
+    pub fn connect_only(mut self, require: Option<Version>) -> RequestBuilder {
+        if let Ok(ref mut req) = self.request {
+            req.config_mut::<RequestOptions>()
+                .get_or_insert_default()
+                .connect_only = Some(require);
+        }
+        self
+    }
+
     /// Set the local address for this request.
     pub fn local_address<V>(mut self, local_address: V) -> RequestBuilder
     where

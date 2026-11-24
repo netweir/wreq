@@ -1197,3 +1197,90 @@ async fn ech_config_list_sends_the_configs_public_name_outside() {
     .await;
     assert_eq!(with_ech, "ech.com");
 }
+
+/// An HTTP/1.1 server that counts the connections it accepts and the
+/// requests it answers.
+async fn counting_server() -> (
+    std::net::SocketAddr,
+    std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    std::sync::Arc<std::sync::atomic::AtomicUsize>,
+) {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let (accepted, answered) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));
+    let (a, n) = (accepted.clone(), answered.clone());
+    tokio::spawn(async move {
+        loop {
+            let (io, _) = listener.accept().await.unwrap();
+            a.fetch_add(1, Ordering::SeqCst);
+            let n = n.clone();
+            tokio::spawn(async move {
+                let svc = hyper::service::service_fn(move |_req| {
+                    n.fetch_add(1, Ordering::SeqCst);
+                    async {
+                        Ok::<_, std::convert::Infallible>(http::Response::new(Full::new(
+                            Bytes::from("hi"),
+                        )))
+                    }
+                });
+                let _ = hyper::server::conn::http1::Builder::new()
+                    .serve_connection(hyper_util::rt::TokioIo::new(io), svc)
+                    .await;
+            });
+        }
+    });
+    (addr, accepted, answered)
+}
+
+#[tokio::test]
+async fn connect_only_keeps_the_connection_for_the_next_request() {
+    use std::sync::atomic::Ordering;
+
+    let (addr, accepted, answered) = counting_server().await;
+    let client = Client::builder().no_proxy().build().unwrap();
+    let url = format!("http://{addr}/");
+
+    let res = client.get(&url).connect_only(None).send().await.unwrap();
+    assert_eq!(res.version(), Version::HTTP_11);
+    assert!(res.bytes().await.unwrap().is_empty());
+    // The server's accept may be counted just after the client's connect.
+    for _ in 0..100 {
+        if accepted.load(Ordering::SeqCst) == 1 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    assert_eq!(accepted.load(Ordering::SeqCst), 1);
+    assert_eq!(answered.load(Ordering::SeqCst), 0);
+
+    let res = client.get(&url).send().await.unwrap();
+    assert_eq!(res.text().await.unwrap(), "hi");
+    assert_eq!(accepted.load(Ordering::SeqCst), 1);
+    assert_eq!(answered.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn connect_only_closes_a_connection_of_another_version() {
+    use std::sync::atomic::Ordering;
+
+    let (addr, accepted, answered) = counting_server().await;
+    let client = Client::builder().no_proxy().build().unwrap();
+    let url = format!("http://{addr}/");
+
+    let res = client
+        .get(&url)
+        .connect_only(Some(Version::HTTP_2))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.version(), Version::HTTP_11);
+
+    client.get(&url).send().await.unwrap();
+    assert_eq!(accepted.load(Ordering::SeqCst), 2);
+    assert_eq!(answered.load(Ordering::SeqCst), 1);
+}

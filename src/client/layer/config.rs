@@ -32,6 +32,8 @@ pub(crate) struct RequestOptions {
     pub socket_bind_options: Option<SocketBindOptions>,
     pub connect_to: Option<Authority>,
     pub ech_config_list: Option<Bytes>,
+    /// Only make the connection, keeping it if it agreed on the version given, if any.
+    pub connect_only: Option<Option<Version>>,
 }
 
 /// Configuration for the [`ConfigService`].
