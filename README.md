@@ -13,6 +13,24 @@
 
 An ergonomic and modular Rust HTTP Client for high-fidelity protocol matching, featuring customizable TLS, JA3/JA4, and HTTP/2 signature capabilities.
 
+## This fork
+
+This is [Netweir](https://github.com/netweir/netweir)'s fork of wreq, on
+the `netweir` branch, at upstream's `cd76bcdf`. Netweir uses it to follow
+Alt-Svc and HTTPS DNS records over TCP the way Firefox does. Each change
+is its own commit, with a test, and changes nothing a request sends
+unless it's asked for:
+
+- `RequestBuilder::connect_to(authority)`: connect to another host and
+  port than the URL's, as curl's `--connect-to` does, for an `h2`
+  alternative or an HTTPS record's target. The server name, certificate
+  and `:authority` stay the URL's.
+- `RequestBuilder::ech_config_list(list)`: offer Encrypted Client Hello
+  with an HTTPS record's `ech` configurations in place of GREASE.
+- `RequestBuilder::connect_only(require)`: make a connection, keep it
+  idle in the pool, and send no request. The empty response's version
+  is the one ALPN agreed on.
+
 ## Features
 
 - Plain bodies, JSON, urlencoded, multipart
