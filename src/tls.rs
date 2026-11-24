@@ -4,12 +4,16 @@
 
 pub(super) mod conn;
 
+mod ech;
+
 pub mod compress;
 pub mod keylog;
 pub mod session;
 pub mod trust;
 
 use std::borrow::Cow;
+
+pub use self::ech::EchRejected;
 
 /// Re-exports of TLS-related types from `btls` for public use.
 pub use btls::ssl::{ExtensionType, KeyShare};

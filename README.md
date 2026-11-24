@@ -26,7 +26,9 @@ unless it's asked for:
   alternative or an HTTPS record's target. The server name, certificate
   and `:authority` stay the URL's.
 - `RequestBuilder::ech_config_list(list)`: offer Encrypted Client Hello
-  with an HTTPS record's `ech` configurations in place of GREASE.
+  with an HTTPS record's `ech` configurations in place of GREASE. A
+  handshake whose ECH the server rejected fails with `tls::EchRejected`
+  among its sources, with the configurations to retry with, if any.
 - `RequestBuilder::connect_only(require)`: make a connection, keep it
   idle in the pool, and send no request. The empty response's version
   is the one ALPN agreed on.

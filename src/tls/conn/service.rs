@@ -5,6 +5,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use bytes::Bytes;
 use http::{Uri, uri::Scheme};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_btls::SslStream;
@@ -14,6 +15,7 @@ use super::{EstablishedConn, HttpsConnector, MaybeHttpsStream};
 use crate::{
     conn::{Connection, descriptor::ConnectionDescriptor},
     ext::UriExt,
+    tls::EchRejected,
 };
 
 type BoxFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
@@ -23,7 +25,15 @@ where
     T: AsyncRead + AsyncWrite + Unpin,
 {
     let mut stream = SslStream::new(ssl, conn)?;
-    Pin::new(&mut stream).connect().await?;
+    if let Err(e) = Pin::new(&mut stream).connect().await {
+        // BoringSSL names the ECH config's public name once it rejected ECH.
+        let ssl = stream.ssl();
+        if ssl.get_ech_name_override().is_some() {
+            let retry_configs = ssl.get_ech_retry_configs().map(Bytes::copy_from_slice);
+            return Err(Box::new(EchRejected::new(retry_configs, e.into())));
+        }
+        return Err(e.into());
+    }
     Ok(MaybeHttpsStream::Https(stream))
 }
 
