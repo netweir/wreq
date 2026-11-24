@@ -20,7 +20,7 @@
 
 use std::collections::BTreeMap;
 
-use http::{Uri, Version};
+use http::{Uri, Version, uri::Authority};
 use name::GroupId;
 
 use crate::{conn::net::SocketBindOptions, proxy::Matcher};
@@ -47,6 +47,7 @@ impl_group_variants! {
     Version(Version),
     Proxy(Matcher),
     SocketBind(Option<SocketBindOptions>),
+    ConnectTo(Authority),
 }
 
 /// A logical identifier for request grouping.
@@ -90,6 +91,12 @@ impl Group {
     #[inline]
     pub(crate) fn socket_bind(&mut self, opts: Option<SocketBindOptions>) -> &mut Self {
         self.extend(GroupKey::SocketBind, GroupVariant::SocketBind(opts))
+    }
+
+    /// Groups the request by the address its connection goes to in place of the URI's.
+    #[inline]
+    pub(crate) fn connect_to(&mut self, authority: Option<Authority>) -> &mut Self {
+        self.extend(GroupKey::ConnectTo, authority.map(GroupVariant::ConnectTo))
     }
 
     /// Creates a nested request group.

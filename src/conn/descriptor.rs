@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-use http::{Uri, Version};
+use http::{Uri, Version, uri::Authority};
 use lru::DefaultHasher;
 
 use crate::{conn::net::SocketBindOptions, group::Group, proxy::Matcher, tls::TlsOptions};
@@ -32,6 +32,7 @@ pub(crate) struct ConnectionDescriptor {
     proxy: Option<Matcher>,
     tls_options: Option<TlsOptions>,
     socket_bind: Option<SocketBindOptions>,
+    connect_to: Option<Authority>,
     connection_id: ConnectionId,
 }
 
@@ -80,13 +81,15 @@ impl ConnectionDescriptor {
         version: Option<Version>,
         tls_options: Option<TlsOptions>,
         socket_bind: Option<SocketBindOptions>,
+        connect_to: Option<Authority>,
     ) -> ConnectionDescriptor {
         let connection_id = {
             group
                 .uri(uri.clone())
                 .version(version)
                 .proxy(proxy.clone())
-                .socket_bind(socket_bind.clone());
+                .socket_bind(socket_bind.clone())
+                .connect_to(connect_to.clone());
             ConnectionId(Arc::new((group, AtomicU64::new(u64::MIN))))
         };
 
@@ -96,6 +99,7 @@ impl ConnectionDescriptor {
             version,
             tls_options,
             socket_bind,
+            connect_to,
             connection_id,
         }
     }
@@ -110,6 +114,17 @@ impl ConnectionDescriptor {
     #[inline]
     pub(crate) fn uri(&self) -> &Uri {
         &self.uri
+    }
+
+    /// Returns the [`Uri`] the transport connects to: the request's, with its
+    /// authority replaced if the request set one to connect to instead.
+    pub(crate) fn connect_uri(&self) -> Uri {
+        let Some(authority) = self.connect_to.clone() else {
+            return self.uri.clone();
+        };
+        let mut parts = self.uri.clone().into_parts();
+        parts.authority = Some(authority);
+        Uri::from_parts(parts).unwrap_or_else(|_| self.uri.clone())
     }
 
     /// Returns a mutable reference to the [`Uri`].

@@ -8,7 +8,7 @@ use std::{
 
 #[cfg(any(feature = "form", feature = "json", feature = "multipart"))]
 use http::header::CONTENT_TYPE;
-use http::{Extensions, Uri, Version};
+use http::{Extensions, Uri, Version, uri::Authority};
 #[cfg(any(feature = "query", feature = "form", feature = "json"))]
 use serde::Serialize;
 #[cfg(feature = "multipart")]
@@ -644,6 +644,19 @@ impl RequestBuilder {
             req.config_mut::<RequestOptions>()
                 .get_or_insert_default()
                 .proxy = Some(proxy.into_matcher());
+        }
+        self
+    }
+
+    /// Connect to `authority` (a host and port) in place of the URL's, as
+    /// curl's `--connect-to` does: the request, its server name and the
+    /// certificate it expects are still the URL's. Connections made this
+    /// way are pooled apart from the URL's own. Not used through a proxy.
+    pub fn connect_to(mut self, authority: Authority) -> RequestBuilder {
+        if let Ok(ref mut req) = self.request {
+            req.config_mut::<RequestOptions>()
+                .get_or_insert_default()
+                .connect_to = Some(authority);
         }
         self
     }

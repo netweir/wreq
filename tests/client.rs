@@ -1114,3 +1114,25 @@ async fn dns_resolution_failure_is_dns_error() {
     assert!(err.is_dns(), "expected a DNS error, got: {err:?}");
     assert!(err.is_connect(), "expected is_connect() to also be true");
 }
+
+#[tokio::test]
+async fn connect_to_another_host_and_port() {
+    let server = server::http(move |req| async move {
+        let host = req.headers()[header::HOST].to_str().unwrap().to_owned();
+        http::Response::new(host.into())
+    });
+
+    // Neither the name nor its port is reachable; only the override is.
+    let res = Client::builder()
+        .no_proxy()
+        .build()
+        .unwrap()
+        .get("http://example.invalid:1/connect_to")
+        .connect_to(server.addr().to_string().parse().unwrap())
+        .send()
+        .await
+        .expect("request");
+
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.text().await.unwrap(), "example.invalid:1");
+}
