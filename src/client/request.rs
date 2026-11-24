@@ -661,6 +661,19 @@ impl RequestBuilder {
         self
     }
 
+    /// Offer Encrypted Client Hello with `list`, an `ECHConfigList` (as an
+    /// HTTPS DNS record's `ech` parameter carries it), in place of GREASE.
+    /// If the server rejects ECH the handshake fails. Connections made this
+    /// way are pooled apart from others.
+    pub fn ech_config_list(mut self, list: impl Into<bytes::Bytes>) -> RequestBuilder {
+        if let Ok(ref mut req) = self.request {
+            req.config_mut::<RequestOptions>()
+                .get_or_insert_default()
+                .ech_config_list = Some(list.into());
+        }
+        self
+    }
+
     /// Set the local address for this request.
     pub fn local_address<V>(mut self, local_address: V) -> RequestBuilder
     where

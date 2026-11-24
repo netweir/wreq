@@ -7,6 +7,7 @@ use std::{
     },
 };
 
+use bytes::Bytes;
 use http::{Uri, Version, uri::Authority};
 use lru::DefaultHasher;
 
@@ -33,6 +34,7 @@ pub(crate) struct ConnectionDescriptor {
     tls_options: Option<TlsOptions>,
     socket_bind: Option<SocketBindOptions>,
     connect_to: Option<Authority>,
+    ech_config_list: Option<Bytes>,
     connection_id: ConnectionId,
 }
 
@@ -74,6 +76,7 @@ impl Eq for ConnectionId {}
 
 impl ConnectionDescriptor {
     /// Create a new [`ConnectionDescriptor`].
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         uri: Uri,
         mut group: Group,
@@ -82,6 +85,7 @@ impl ConnectionDescriptor {
         tls_options: Option<TlsOptions>,
         socket_bind: Option<SocketBindOptions>,
         connect_to: Option<Authority>,
+        ech_config_list: Option<Bytes>,
     ) -> ConnectionDescriptor {
         let connection_id = {
             group
@@ -89,7 +93,8 @@ impl ConnectionDescriptor {
                 .version(version)
                 .proxy(proxy.clone())
                 .socket_bind(socket_bind.clone())
-                .connect_to(connect_to.clone());
+                .connect_to(connect_to.clone())
+                .ech_config_list(ech_config_list.clone());
             ConnectionId(Arc::new((group, AtomicU64::new(u64::MIN))))
         };
 
@@ -100,6 +105,7 @@ impl ConnectionDescriptor {
             tls_options,
             socket_bind,
             connect_to,
+            ech_config_list,
             connection_id,
         }
     }
@@ -142,6 +148,12 @@ impl ConnectionDescriptor {
     #[inline]
     pub(crate) fn tls_options(&self) -> Option<&TlsOptions> {
         self.tls_options.as_ref()
+    }
+
+    /// Return the ECH configurations (an `ECHConfigList`) to offer, if any.
+    #[inline]
+    pub(crate) fn ech_config_list(&self) -> Option<&Bytes> {
+        self.ech_config_list.as_ref()
     }
 
     /// Return a reference to the [`Matcher`].

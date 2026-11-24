@@ -185,6 +185,7 @@ where
                 http2_options,
                 socket_bind_options,
                 connect_to,
+                ech_config_list,
             } = RequestConfig::<RequestOptions>::remove(req.extensions_mut()).unwrap_or_default();
 
             if let Some(opts) = http1_options {
@@ -202,6 +203,7 @@ where
                 tls_options,
                 socket_bind_options,
                 connect_to,
+                ech_config_list,
             )
         };
 

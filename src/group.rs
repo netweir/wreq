@@ -20,6 +20,7 @@
 
 use std::collections::BTreeMap;
 
+use bytes::Bytes;
 use http::{Uri, Version, uri::Authority};
 use name::GroupId;
 
@@ -48,6 +49,7 @@ impl_group_variants! {
     Proxy(Matcher),
     SocketBind(Option<SocketBindOptions>),
     ConnectTo(Authority),
+    EchConfigList(Bytes),
 }
 
 /// A logical identifier for request grouping.
@@ -97,6 +99,15 @@ impl Group {
     #[inline]
     pub(crate) fn connect_to(&mut self, authority: Option<Authority>) -> &mut Self {
         self.extend(GroupKey::ConnectTo, authority.map(GroupVariant::ConnectTo))
+    }
+
+    /// Groups the request by the ECH configurations its TLS handshake offers.
+    #[inline]
+    pub(crate) fn ech_config_list(&mut self, list: Option<Bytes>) -> &mut Self {
+        self.extend(
+            GroupKey::EchConfigList,
+            list.map(GroupVariant::EchConfigList),
+        )
     }
 
     /// Creates a nested request group.

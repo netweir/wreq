@@ -215,7 +215,14 @@ impl TlsConnector {
             cfg.set_ex_data(idx, key);
         }
 
-        Ok(cfg.into_ssl(host)?)
+        let mut ssl = cfg.into_ssl(host)?;
+
+        // Offer ECH with the given configurations, in place of GREASE.
+        if let Some(list) = descriptor.ech_config_list() {
+            ssl.set_ech_config_list(list)?;
+        }
+
+        Ok(ssl)
     }
 
     /// If `host` is an IPv6 address, we must strip away the square brackets that surround

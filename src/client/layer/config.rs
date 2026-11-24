@@ -3,6 +3,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use bytes::Bytes;
 use futures_util::future::{self, Either, Ready};
 use http::{HeaderMap, Request, Response, Version, uri::Authority};
 use tower::{Layer, Service};
@@ -30,6 +31,7 @@ pub(crate) struct RequestOptions {
     pub http2_options: Option<Http2Options>,
     pub socket_bind_options: Option<SocketBindOptions>,
     pub connect_to: Option<Authority>,
+    pub ech_config_list: Option<Bytes>,
 }
 
 /// Configuration for the [`ConfigService`].
