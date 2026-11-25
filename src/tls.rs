@@ -208,6 +208,13 @@ pub struct TlsOptions {
     /// **Default:** `false`
     pub enable_ech_grease: bool,
 
+    /// Whether the ClientHelloInner of a connection with ECH is written as
+    /// NSS (Firefox) writes it: the encrypted_client_hello marker first, and
+    /// the same cipher suites as the ClientHelloOuter.
+    ///
+    /// **Default:** `false`
+    pub ech_inner_like_nss: bool,
+
     /// Controls whether ClientHello extensions should be permuted.
     ///
     /// **Default:** `None` (implementation default)
@@ -374,6 +381,13 @@ impl TlsOptionsBuilder {
     #[inline]
     pub fn enable_ech_grease(mut self, enabled: bool) -> Self {
         self.config.enable_ech_grease = enabled;
+        self
+    }
+
+    /// Writes the ClientHelloInner as NSS (Firefox) writes it.
+    #[inline]
+    pub fn ech_inner_like_nss(mut self, enabled: bool) -> Self {
+        self.config.ech_inner_like_nss = enabled;
         self
     }
 
@@ -603,6 +617,7 @@ impl Default for TlsOptions {
             min_tls_version: None,
             max_tls_version: None,
             enable_ech_grease: false,
+            ech_inner_like_nss: false,
             permute_extensions: None,
             grease_enabled: None,
             grease_sigalgs_enabled: None,
@@ -631,6 +646,13 @@ impl Default for TlsOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ech_inner_like_nss_is_off_unless_asked_for() {
+        assert!(!TlsOptions::builder().build().ech_inner_like_nss);
+        let on = TlsOptions::builder().ech_inner_like_nss(true).build();
+        assert!(on.ech_inner_like_nss);
+    }
 
     #[test]
     fn alpn_protocol_encode() {

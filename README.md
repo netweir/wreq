@@ -32,6 +32,11 @@ unless it's asked for:
 - `RequestBuilder::connect_only(require)`: make a connection, keep it
   idle in the pool, and send no request. The empty response's version
   is the one ALPN agreed on.
+- `TlsOptions::ech_inner_like_nss(enabled)`: write the ClientHelloInner
+  of a connection with ECH as NSS (Firefox) writes it. It needs
+  [netweir/btls](https://github.com/netweir/btls)'s
+  `set_ech_inner_like_nss`, so a build with this branch patches btls to
+  that fork.
 
 ## Features
 

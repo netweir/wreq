@@ -439,6 +439,9 @@ impl TlsConnectorBuilder {
         // Set TLS record size limit
         set_option!(opts, record_size_limit, connector, set_record_size_limit);
 
+        // Write the ClientHelloInner as NSS does
+        connector.set_ech_inner_like_nss(opts.ech_inner_like_nss);
+
         // Set TLS aes hardware override
         set_option!(opts, aes_hw_override, connector, set_aes_hw_override);
 
