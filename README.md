@@ -39,8 +39,10 @@ unless it's asked for:
   that fork.
 - `ClientBuilder::tls_verify_callback(callback)`: check the server's
   chain beside BoringSSL, as `SslContextBuilder::set_verify_callback`
-  does, while certificates are verified. Netweir uses it for the dates
-  after which Firefox stops trusting some roots.
+  does, while certificates are verified. Its answer replaces
+  BoringSSL's, so returning true overrides a failed verification.
+  Netweir uses it for the dates after which Firefox stops trusting some
+  roots, and only ever adds a refusal.
 
 ## Features
 

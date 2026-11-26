@@ -21,7 +21,8 @@ pub use btls::ssl::{ExtensionType, KeyShare};
 /// A check of the server's certificate chain beside BoringSSL's: called
 /// for each certificate as BoringSSL verifies it, with whether it passed,
 /// as `SslContextBuilder::set_verify_callback` calls it. Returning false
-/// refuses the chain.
+/// refuses the chain; returning true overrides a failed verification, so
+/// a check that only adds a refusal returns `ok && ...`.
 pub type VerifyCallback =
     std::sync::Arc<dyn Fn(bool, &mut btls::x509::X509StoreContextRef) -> bool + Send + Sync>;
 use bytes::{BufMut, Bytes, BytesMut};

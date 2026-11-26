@@ -1446,6 +1446,13 @@ impl ClientBuilder {
     /// is called for each certificate as BoringSSL verifies it, with
     /// whether it passed, and returning false refuses the chain. It runs
     /// only while certificates are verified.
+    ///
+    /// # Warning
+    ///
+    /// The callback's answer replaces BoringSSL's: returning true for a
+    /// certificate that failed (`ok` false) trusts it anyway, an expired
+    /// or self-signed one included. To only add a check, return
+    /// `ok && your_check(ctx)`.
     pub fn tls_verify_callback<F>(mut self, callback: F) -> ClientBuilder
     where
         F: Fn(bool, &mut btls::x509::X509StoreContextRef) -> bool + Send + Sync + 'static,
