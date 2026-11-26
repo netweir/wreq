@@ -224,7 +224,7 @@ dependencies = [
 [[package]]
 name = "btls"
 version = "0.5.6"
-source = "git+https://github.com/netweir/btls?rev=18c5e695f7842a5c29a507548502f932bd12a18e#18c5e695f7842a5c29a507548502f932bd12a18e"
+source = "git+https://github.com/netweir/btls?rev=07739c880a9cbb9756b801225a51c7be5f817eb8#07739c880a9cbb9756b801225a51c7be5f817eb8"
 dependencies = [
  "bitflags",
  "btls-sys",
@@ -236,7 +236,7 @@ dependencies = [
 [[package]]
 name = "btls-sys"
 version = "0.5.6"
-source = "git+https://github.com/netweir/btls?rev=18c5e695f7842a5c29a507548502f932bd12a18e#18c5e695f7842a5c29a507548502f932bd12a18e"
+source = "git+https://github.com/netweir/btls?rev=07739c880a9cbb9756b801225a51c7be5f817eb8#07739c880a9cbb9756b801225a51c7be5f817eb8"
 dependencies = [
  "bindgen",
  "cmake",
