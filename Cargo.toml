@@ -381,5 +381,5 @@ required-features = ["compio-rt"]
 
 [patch.crates-io]
 # netweir/btls for set_ech_inner_like_nss (TlsOptions::ech_inner_like_nss).
-btls = { git = "https://github.com/netweir/btls", rev = "1788f675aba654d5c3022c8189d2343f51ddfe53" }
-btls-sys = { git = "https://github.com/netweir/btls", rev = "1788f675aba654d5c3022c8189d2343f51ddfe53" }
+btls = { git = "https://github.com/netweir/btls", rev = "18c5e695f7842a5c29a507548502f932bd12a18e" }
+btls-sys = { git = "https://github.com/netweir/btls", rev = "18c5e695f7842a5c29a507548502f932bd12a18e" }
