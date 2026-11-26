@@ -1402,3 +1402,46 @@ async fn a_rejected_ech_is_told_apart() {
     .expect("an EchRejected among the sources");
     assert_eq!(rejected.retry_configs(), None);
 }
+
+#[tokio::test]
+async fn a_verify_callback_runs_only_while_certificates_are_verified() {
+    use std::sync::{Arc, Mutex};
+
+    // The server's certificate is for foobar.com, from a CA nothing
+    // trusts: BoringSSL calls the callback with that failure.
+    let addr = tls_server_without_ech().await;
+    let calls = |verify: bool| {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let log = seen.clone();
+        let client = Client::builder()
+            .no_proxy()
+            .tls_cert_verification(verify)
+            .tls_verify_hostname(false)
+            .tls_verify_callback(move |ok, ctx| {
+                log.lock().unwrap().push((ok, ctx.error_depth()));
+                false
+            })
+            .build()
+            .unwrap();
+        (client, seen)
+    };
+
+    let (client, seen) = calls(true);
+    let refused = client
+        .get("https://foobar.example/")
+        .connect_to(addr.to_string().parse().unwrap())
+        .send()
+        .await;
+    assert!(refused.is_err());
+    let seen = seen.lock().unwrap().clone();
+    assert!(seen.contains(&(false, 0)), "{seen:?}");
+
+    // Turned off, verification never asks it.
+    let (client, seen) = calls(false);
+    let _ = client
+        .get("https://foobar.example/")
+        .connect_to(addr.to_string().parse().unwrap())
+        .send()
+        .await;
+    assert!(seen.lock().unwrap().is_empty());
+}

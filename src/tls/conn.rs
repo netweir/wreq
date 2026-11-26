@@ -17,7 +17,7 @@ use std::{
 use btls::{
     error::ErrorStack,
     ex_data::Index,
-    ssl::{Ssl, SslConnector, SslMethod, SslOptions, SslSessionCacheMode},
+    ssl::{Ssl, SslConnector, SslMethod, SslOptions, SslSessionCacheMode, SslVerifyMode},
 };
 use ext::SslConnectorBuilderExt;
 use http::{Uri, Version};
@@ -29,7 +29,7 @@ use crate::{
     Error,
     conn::{Connected, Connection, descriptor::ConnectionDescriptor},
     tls::{
-        AlpnProtocol, AlpsProtocol, KeyShare, TlsOptions, TlsVersion,
+        AlpnProtocol, AlpsProtocol, KeyShare, TlsOptions, TlsVersion, VerifyCallback,
         keylog::KeyLog,
         session::{Key, LruTlsSessionCache, TlsSession, TlsSessionCache},
         trust::{CertStore, Identity},
@@ -72,6 +72,7 @@ pub struct TlsConnectorBuilder {
     identity: Option<Identity>,
     cert_store: Option<CertStore>,
     cert_verification: bool,
+    verify_callback: Option<VerifyCallback>,
     keylog: Option<KeyLog>,
     session_cache: Arc<dyn TlsSessionCache>,
 }
@@ -121,6 +122,7 @@ impl TlsConnector {
             verify_hostname: true,
             cert_store: None,
             cert_verification: true,
+            verify_callback: None,
             keylog: None,
             session_cache: Arc::new(LruTlsSessionCache::new(8)),
         }
@@ -313,6 +315,14 @@ impl TlsConnectorBuilder {
         self
     }
 
+    /// Sets a check of the server's chain beside BoringSSL's, run only
+    /// while certificates are verified.
+    #[inline]
+    pub fn verify_callback(mut self, callback: Option<VerifyCallback>) -> Self {
+        self.verify_callback = callback;
+        self
+    }
+
     /// Sets a custom TLS session store.
     #[inline]
     pub fn session_store(mut self, store: Option<Arc<dyn TlsSessionCache>>) -> Self {
@@ -344,6 +354,12 @@ impl TlsConnectorBuilder {
             .set_cert_store(self.cert_store.as_ref())?
             .set_cert_verification(self.cert_verification)
             .set_cert_compressors(opts.certificate_compressors.as_deref())?;
+
+        if self.cert_verification
+            && let Some(callback) = self.verify_callback.clone()
+        {
+            connector.set_verify_callback(SslVerifyMode::PEER, move |ok, ctx| callback(ok, ctx));
+        }
 
         // The specification distinguishes an empty requested list from omitting the extension.
         // https://datatracker.ietf.org/doc/html/draft-ietf-tls-trust-anchor-ids-04#section-4.1

@@ -37,6 +37,10 @@ unless it's asked for:
   [netweir/btls](https://github.com/netweir/btls)'s
   `set_ech_inner_like_nss`, so a build with this branch patches btls to
   that fork.
+- `ClientBuilder::tls_verify_callback(callback)`: check the server's
+  chain beside BoringSSL, as `SslContextBuilder::set_verify_callback`
+  does, while certificates are verified. Netweir uses it for the dates
+  after which Firefox stops trusting some roots.
 
 ## Features
 

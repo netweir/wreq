@@ -17,6 +17,13 @@ pub use self::ech::EchRejected;
 
 /// Re-exports of TLS-related types from `btls` for public use.
 pub use btls::ssl::{ExtensionType, KeyShare};
+
+/// A check of the server's certificate chain beside BoringSSL's: called
+/// for each certificate as BoringSSL verifies it, with whether it passed,
+/// as `SslContextBuilder::set_verify_callback` calls it. Returning false
+/// refuses the chain.
+pub type VerifyCallback =
+    std::sync::Arc<dyn Fn(bool, &mut btls::x509::X509StoreContextRef) -> bool + Send + Sync>;
 use bytes::{BufMut, Bytes, BytesMut};
 use compress::CertificateCompressor;
 

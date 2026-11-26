@@ -75,7 +75,7 @@ use crate::{
     retry,
     rt::{BoxSendFuture, Executor, Timer},
     tls::{
-        AlpnProtocol, TlsOptions, TlsVersion,
+        AlpnProtocol, TlsOptions, TlsVersion, VerifyCallback,
         keylog::KeyLog,
         session::{IntoTlsSessionCache, TlsSessionCache},
         trust::{CertStore, Identity},
@@ -217,6 +217,7 @@ struct Config {
     tls_identity: Option<Identity>,
     tls_cert_store: Option<CertStore>,
     tls_cert_verification: bool,
+    tls_verify_callback: Option<VerifyCallback>,
     tls_verify_hostname: bool,
     tls_min_version: Option<TlsVersion>,
     tls_max_version: Option<TlsVersion>,
@@ -306,6 +307,7 @@ impl Client {
                 tls_identity: None,
                 tls_cert_store: None,
                 tls_cert_verification: true,
+                tls_verify_callback: None,
                 tls_verify_hostname: true,
                 tls_min_version: None,
                 tls_max_version: None,
@@ -524,6 +526,7 @@ impl ClientBuilder {
                     .tls_sni(config.tls_sni)
                     .verify_hostname(config.tls_verify_hostname)
                     .cert_verification(config.tls_cert_verification)
+                    .verify_callback(config.tls_verify_callback)
                     .session_store(config.tls_session_cache)
                 })
                 .with_http(|http| {
@@ -1436,6 +1439,18 @@ impl ClientBuilder {
     #[inline]
     pub fn tls_cert_verification(mut self, cert_verification: bool) -> ClientBuilder {
         self.config.tls_cert_verification = cert_verification;
+        self
+    }
+
+    /// Checks the server's certificate chain beside BoringSSL: `callback`
+    /// is called for each certificate as BoringSSL verifies it, with
+    /// whether it passed, and returning false refuses the chain. It runs
+    /// only while certificates are verified.
+    pub fn tls_verify_callback<F>(mut self, callback: F) -> ClientBuilder
+    where
+        F: Fn(bool, &mut btls::x509::X509StoreContextRef) -> bool + Send + Sync + 'static,
+    {
+        self.config.tls_verify_callback = Some(Arc::new(callback));
         self
     }
 
