@@ -1137,9 +1137,9 @@ async fn connect_to_another_host_and_port() {
     assert_eq!(res.text().await.unwrap(), "example.invalid:1");
 }
 
-/// The server name in the first ClientHello a client sends to a listener
-/// that answers nothing.
-async fn client_hello_server_name(request: impl FnOnce(String) -> wreq::RequestBuilder) -> String {
+/// The first ClientHello a client sends to a listener that answers
+/// nothing, without its record header.
+async fn client_hello(request: impl FnOnce(String) -> wreq::RequestBuilder) -> Vec<u8> {
     use tokio::io::AsyncReadExt;
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -1153,6 +1153,13 @@ async fn client_hello_server_name(request: impl FnOnce(String) -> wreq::RequestB
     stream.read_exact(&mut hello).await.unwrap();
     drop(stream);
     let _ = send.await;
+    hello
+}
+
+/// The server name in the first ClientHello a client sends to a listener
+/// that answers nothing.
+async fn client_hello_server_name(request: impl FnOnce(String) -> wreq::RequestBuilder) -> String {
+    let hello = client_hello(request).await;
 
     // handshake header, version, random, then the session id, cipher
     // suites and compression methods, then the extensions.
@@ -1196,6 +1203,56 @@ async fn ech_config_list_sends_the_configs_public_name_outside() {
     })
     .await;
     assert_eq!(with_ech, "ech.com");
+}
+
+#[tokio::test]
+async fn a_requests_tls_options_make_its_handshake() {
+    use wreq::tls::{AlpnProtocol, TlsOptions};
+
+    let alpn = |protocols: &[AlpnProtocol]| {
+        TlsOptions::builder()
+            .alpn_protocols(protocols.to_vec())
+            .build()
+    };
+    let client = Client::builder()
+        .no_proxy()
+        .tls_options(alpn(&[AlpnProtocol::HTTP2, AlpnProtocol::HTTP1]))
+        .build()
+        .unwrap();
+    let offers_h2 = |hello: &[u8]| hello.windows(3).any(|w| w == b"\x02h2");
+
+    let plain = client_hello(|addr| {
+        client
+            .get("https://foobar.example/")
+            .connect_to(addr.parse().unwrap())
+    })
+    .await;
+    assert!(offers_h2(&plain));
+
+    let own = client_hello(|addr| {
+        client
+            .get("https://foobar.example/")
+            .connect_to(addr.parse().unwrap())
+            .tls_options(alpn(&[AlpnProtocol::HTTP1]))
+    })
+    .await;
+    assert!(!offers_h2(&own));
+}
+
+#[tokio::test]
+async fn a_connection_made_with_a_requests_tls_options_is_pooled_with_the_rest() {
+    use std::sync::atomic::Ordering;
+
+    let (addr, accepted, answered) = counting_server().await;
+    let client = Client::builder().no_proxy().build().unwrap();
+    let url = format!("http://{addr}/");
+    let own = wreq::tls::TlsOptions::builder().build();
+    let res = client.get(&url).tls_options(own).send().await.unwrap();
+    res.bytes().await.unwrap();
+    let res = client.get(&url).send().await.unwrap();
+    res.bytes().await.unwrap();
+    assert_eq!(answered.load(Ordering::SeqCst), 2);
+    assert_eq!(accepted.load(Ordering::SeqCst), 1);
 }
 
 /// An HTTP/1.1 server that counts the connections it accepts and the

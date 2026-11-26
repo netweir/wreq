@@ -38,6 +38,7 @@ use crate::{
     group::Group,
     header::{AUTHORIZATION, HeaderMap, HeaderName, HeaderValue, OrigHeaderMap},
     redirect,
+    tls::TlsOptions,
 };
 
 /// A request which can be executed with [`Client::execute()`].
@@ -670,6 +671,21 @@ impl RequestBuilder {
             req.config_mut::<RequestOptions>()
                 .get_or_insert_default()
                 .ech_config_list = Some(list.into());
+        }
+        self
+    }
+
+    /// Make a new connection for this request with `options` in place of the
+    /// client's TLS options, as a browser does when it tries a handshake
+    /// again. Unlike [`emulation`](Self::emulation), this leaves the
+    /// request's group alone, so the connection is pooled with the ones the
+    /// client's own options made, and later requests may use it. An idle
+    /// connection already in the pool is used as it is.
+    pub fn tls_options(mut self, options: TlsOptions) -> RequestBuilder {
+        if let Ok(ref mut req) = self.request {
+            req.config_mut::<RequestOptions>()
+                .get_or_insert_default()
+                .tls_options = Some(options);
         }
         self
     }
